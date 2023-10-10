@@ -45,7 +45,7 @@ dependencies {
     implementation 'net.dv8tion:JDA:5.0.0-beta.15'
     implementation 'com.github.JustRed23:JDA-Utilities:1.4'
 
-    implementation 'ch.qos.logback:logback-classic:1.4.9'
+    implementation 'ch.qos.logback:logback-classic:1.4.11'
 }
 
 shadowJar {
