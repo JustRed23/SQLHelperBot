@@ -47,17 +47,23 @@ public final class SessionManager {
                     App.LOGGER.debug("SQLCMD exit future completed");
                 });
 
-                createProcessListener();
+                while (!sqlcmdProcess.isAlive()) {
+                    Thread.sleep(100);
+                }
+
+                sessionOpen = true;
 
                 processWriter = new BufferedWriter(new OutputStreamWriter(sqlcmdProcess.getOutputStream()));
+
+                createProcessListener();
 
                 App.LOGGER.debug("Opened SQLCMD session");
             } catch (IOException e) {
                 sendMsgToBoundChannel("Failed to open session: " + e.getMessage());
                 return false;
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
             }
-
-            sessionOpen = true;
             return true;
         }
         return false;
