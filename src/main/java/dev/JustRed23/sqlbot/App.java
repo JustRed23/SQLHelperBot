@@ -49,7 +49,7 @@ public class App extends Application {
                     return true;
                 })
                 .executes(ctx -> {
-                    SessionManager.bindChannel(ctx.getChannel().asTextChannel());
+                    SessionManager.bindChannel(ctx.getChannel().asGuildMessageChannel());
                     boolean opened = SessionManager.openSession();
                     if (opened)
                         ctx.reply("Session opened").queue();

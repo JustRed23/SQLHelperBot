@@ -1,7 +1,9 @@
 package dev.JustRed23.sqlbot;
 
 import net.dv8tion.jda.api.entities.Guild;
-import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import net.dv8tion.jda.api.entities.channel.concrete.ThreadChannel;
+import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
+import net.dv8tion.jda.api.entities.channel.middleman.GuildMessageChannel;
 
 import java.io.*;
 import java.util.ArrayList;
@@ -107,9 +109,9 @@ public final class SessionManager {
             return;
         }
 
-        final TextChannel channelById = guildById.getTextChannelById(channelId);
-        if (channelById != null)
-            channelById.sendMessage(msg).queue();
+        final GuildChannel channelById = guildById.getGuildChannelById(channelId);
+        if (channelById instanceof GuildMessageChannel channel)
+            channel.sendMessage(msg).queue(suc -> {}, err -> App.LOGGER.error("Failed to send message to binded channel", err));
         else App.LOGGER.error("Failed to send message to binded channel: channel not found");
     }
 
@@ -200,10 +202,12 @@ public final class SessionManager {
         waitTime.set(1_000);
     }
 
-    public static void bindChannel(TextChannel channel) {
+    public static void bindChannel(GuildMessageChannel channel) {
         if (isBound()) return;
         channelId = channel.getIdLong();
         guildId = channel.getGuild().getIdLong();
+        if (channel.getType().isThread())
+            ((ThreadChannel) channel).join().queue();
     }
 
     public static boolean isSessionOpen() {
