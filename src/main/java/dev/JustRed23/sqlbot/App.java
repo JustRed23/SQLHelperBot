@@ -40,9 +40,40 @@ public class App extends Application {
                 .setStatus(OnlineStatus.IDLE)
                 .setActivity(Activity.playing("with tables"));
 
-        //TODO: init commands here
-        JDAUtilities.createSlashCommand("test", "test command")
-                .executes(ctx -> ctx.reply("test").queue())
+        JDAUtilities.createSlashCommand("open", "Opens a new sqlcmd session (only one session at a time)")
+                .addCondition(ctx -> {
+                    if (SessionManager.isSessionOpen()) {
+                        ctx.reply("A session is already open").queue();
+                        return false;
+                    }
+                    return true;
+                })
+                .executes(ctx -> {
+                    SessionManager.bindChannel(ctx.getChannel().asTextChannel());
+                    boolean opened = SessionManager.openSession();
+                    if (opened)
+                        ctx.reply("Session opened").queue();
+                    else
+                        ctx.reply("Failed to open session").queue();
+                })
+                .buildAndRegister();
+
+        JDAUtilities.createSlashCommand("close", "Closes the current sqlcmd session")
+                .addCondition(ctx -> {
+                    if (!SessionManager.isSessionOpen()) {
+                        ctx.reply("No session is currently open").queue();
+                        return false;
+                    }
+                    return true;
+                })
+                .executes(ctx -> {
+                    ctx.deferReply().queue();
+                    boolean closed = SessionManager.closeSession();
+                    if (closed)
+                        ctx.getHook().editOriginal("Session closed").queue();
+                    else
+                        ctx.getHook().editOriginal("Failed to close session").queue();
+                })
                 .buildAndRegister();
     }
 
@@ -54,7 +85,7 @@ public class App extends Application {
         }
 
         instance = builder.build();
-        instance.addEventListener(JDAUtilities.getInstance().listener());
+        instance.addEventListener(JDAUtilities.getInstance().listener(), new DBListener());
         instance.awaitReady();
     }
 
@@ -62,7 +93,14 @@ public class App extends Application {
         if (instance == null || !BotConfig.enabled)
             return;
 
+        if (SessionManager.isSessionOpen())
+            SessionManager.closeSession();
+
         instance.shutdown();
+    }
+
+    public static JDA getInstance() {
+        return instance;
     }
 
     public static void main(String[] args) {
