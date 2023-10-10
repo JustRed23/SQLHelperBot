@@ -1,0 +1,59 @@
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath "gradle.plugin.net.nemerosa:versioning:2.14.0"
+    }
+}
+
+plugins {
+    id 'java'
+    id 'application'
+    id 'net.nemerosa.versioning' version '3.0.0'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
+    id 'maven-publish'
+}
+
+mainClassName = 'dev.JustRed23.sqlbot.App'
+group 'dev.JustRed23'
+
+allprojects {
+    updateVersion()
+}
+
+def updateVersion() {
+    ant.propertyfile(file: "./src/main/resources/application.properties") {
+        entry( key: "version", value: versioning.info.build)
+        entry( key: "buildTime", value: DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(ZonedDateTime.now()))
+    }
+}
+
+repositories {
+    mavenCentral()
+    maven { url 'https://jitpack.io' }
+}
+
+dependencies {
+    //Engine
+    implementation 'com.github.JustRed23:Stonebrick:v1.9'
+
+    //JDA
+    implementation 'net.dv8tion:JDA:5.0.0-beta.15'
+    implementation 'com.github.JustRed23:JDA-Utilities:1.4'
+
+    implementation 'ch.qos.logback:logback-classic:1.4.9'
+}
+
+shadowJar {
+    archiveFileName = 'Grandfather.jar'
+    manifest {
+        attributes('Implementation-Title': project.name, 'Implementation-Version': versioning.info.build)
+    }
+
+    // Prevent gradle from crashing and burning
+    dependsOn(distTar, distZip)
+}
