@@ -10,14 +10,19 @@ public class DBListener extends ListenerAdapter {
         if (event.getAuthor().isBot() || !event.isFromGuild() || event.getAuthor().isSystem())
             return;
 
-        if (!SessionManager.isSessionOpen() || !SessionManager.isBound())
+        if (!SessionManager.hasSession(event.getMember()))
+            return;
+
+        SessionManager session = SessionManager.getOrCreate(event.getMember());
+        if (!session.isSessionOpen() || !session.isBound())
             return;
 
         String message = event.getMessage().getContentRaw();
         if (message.startsWith("> ")) {
-            if (event.getGuild().getIdLong() == SessionManager.getBoundGuildId() && event.getChannel().getIdLong() == SessionManager.getBoundChannelId()) {
+            if (event.getGuild().getIdLong() == session.getBoundGuildId()
+                    && event.getChannel().getIdLong() == session.getBoundChannelId()) {
                 String command = message.substring(2);
-                SessionManager.sendMsgToProcess(command);
+                session.sendMsgToProcess(command);
             }
         }
     }

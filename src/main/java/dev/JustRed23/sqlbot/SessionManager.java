@@ -1,33 +1,53 @@
 package dev.JustRed23.sqlbot;
 
 import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.channel.concrete.ThreadChannel;
 import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
 import net.dv8tion.jda.api.entities.channel.middleman.GuildMessageChannel;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public final class SessionManager {
 
-    private static long guildId = -1;
-    private static long channelId = -1;
+    private static final Map<Member, SessionManager> sessions = Collections.synchronizedMap(new HashMap<>());
 
-    private static boolean sessionOpen = false;
-    private static Process sqlcmdProcess;
-    private static BufferedWriter processWriter;
-    private static Thread processListener, processSender;
+    public static SessionManager getOrCreate(Member user) {
+        if (hasSession(user)) return sessions.get(user);
 
-    private static final List<String> sendQueue = Collections.synchronizedList(new ArrayList<>());
-    private static final AtomicInteger waitTime = new AtomicInteger(0);
+        SessionManager session = new SessionManager();
+        sessions.put(user, session);
+        return session;
+    }
 
-    private static boolean manualClose = false;
+    public static List<SessionManager> getSessions() {
+        return sessions.values().stream().toList();
+    }
 
-    public static boolean openSession() {
+    public static boolean hasSession(Member user) {
+        return sessions.containsKey(user);
+    }
+
+
+    private final List<String> sendQueue = Collections.synchronizedList(new ArrayList<>());
+    private final AtomicInteger waitTime = new AtomicInteger(0);
+
+    private long guildId = -1;
+    private long channelId = -1;
+
+    private boolean sessionOpen = false;
+    private boolean manualClose = false;
+
+    private Process sqlcmdProcess;
+    private BufferedWriter processWriter;
+    private Thread processListener, processSender;
+
+    private SessionManager() {}
+
+    public boolean openSession() {
         if (!sessionOpen) {
             manualClose = false;
             ProcessBuilder builder = new ProcessBuilder(Commands.OPEN_SQLCMD.getCommand().split(" "));
@@ -69,7 +89,7 @@ public final class SessionManager {
         return false;
     }
 
-    public static boolean closeSession() {
+    public boolean closeSession() {
         if (!sessionOpen) return false;
 
         manualClose = true;
@@ -106,7 +126,7 @@ public final class SessionManager {
         return true;
     }
 
-    private static void sendMsgToBoundChannel(String msg) {
+    private void sendMsgToBoundChannel(String msg) {
         if (!isBound()) return;
 
         final Guild guildById = App.getInstance().getGuildById(guildId);
@@ -121,7 +141,7 @@ public final class SessionManager {
         else App.LOGGER.error("Failed to send message to binded channel: channel not found");
     }
 
-    public static void sendMsgToProcess(String msg) {
+    public void sendMsgToProcess(String msg) {
         if (!sessionOpen) return;
 
         try {
@@ -135,7 +155,7 @@ public final class SessionManager {
         }
     }
 
-    private static void createProcessListener() {
+    private void createProcessListener() {
         processListener = new Thread(() ->
         {
             App.LOGGER.debug("Process listener thread started");
@@ -200,7 +220,7 @@ public final class SessionManager {
         processSender.start();
     }
 
-    private static void addToSendQueue(String msg) {
+    private void addToSendQueue(String msg) {
         if (!sessionOpen) return;
         synchronized (sendQueue) {
             sendQueue.add(msg);
@@ -208,7 +228,7 @@ public final class SessionManager {
         waitTime.set(1_000);
     }
 
-    public static void bindChannel(GuildMessageChannel channel) {
+    public void bindChannel(GuildMessageChannel channel) {
         if (isBound()) return;
         channelId = channel.getIdLong();
         guildId = channel.getGuild().getIdLong();
@@ -216,19 +236,19 @@ public final class SessionManager {
             ((ThreadChannel) channel).join().queue();
     }
 
-    public static boolean isSessionOpen() {
+    public boolean isSessionOpen() {
         return sessionOpen;
     }
 
-    public static boolean isBound() {
+    public boolean isBound() {
         return guildId != -1 && channelId != -1;
     }
 
-    public static long getBoundGuildId() {
+    public long getBoundGuildId() {
         return guildId;
     }
 
-    public static long getBoundChannelId() {
+    public long getBoundChannelId() {
         return channelId;
     }
 }

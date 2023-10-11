@@ -42,33 +42,33 @@ public class App extends Application {
 
         JDAUtilities.createSlashCommand("open", "Opens a new sqlcmd session (only one session at a time)")
                 .addCondition(ctx -> {
-                    if (SessionManager.isSessionOpen()) {
-                        ctx.reply("A session is already open").queue();
+                    if (SessionManager.hasSession(ctx.getMember())) {
+                        ctx.reply("You already have an open session, please close this one first").queue();
                         return false;
                     }
                     return true;
                 })
                 .executes(ctx -> {
-                    SessionManager.bindChannel(ctx.getChannel().asGuildMessageChannel());
-                    boolean opened = SessionManager.openSession();
-                    if (opened)
+                    SessionManager session = SessionManager.getOrCreate(ctx.getMember());
+                    boolean opened = session.openSession();
+                    if (opened) {
+                        session.bindChannel(ctx.getChannel().asGuildMessageChannel());
                         ctx.reply("Session opened").queue();
-                    else
-                        ctx.reply("Failed to open session").queue();
+                    } else ctx.reply("Failed to open session").queue();
                 })
                 .buildAndRegister();
 
         JDAUtilities.createSlashCommand("close", "Closes the current sqlcmd session")
                 .addCondition(ctx -> {
-                    if (!SessionManager.isSessionOpen()) {
-                        ctx.reply("No session is currently open").queue();
+                    if (!SessionManager.hasSession(ctx.getMember())) {
+                        ctx.reply("You currently do not have an open session").queue();
                         return false;
                     }
                     return true;
                 })
                 .executes(ctx -> {
                     ctx.deferReply().queue();
-                    boolean closed = SessionManager.closeSession();
+                    boolean closed = SessionManager.getOrCreate(ctx.getMember()).closeSession();
                     if (closed)
                         ctx.getHook().editOriginal("Session closed").queue();
                     else
@@ -93,8 +93,7 @@ public class App extends Application {
         if (instance == null || !BotConfig.enabled)
             return;
 
-        if (SessionManager.isSessionOpen())
-            SessionManager.closeSession();
+        SessionManager.getSessions().forEach(SessionManager::closeSession);
 
         instance.shutdown();
     }
