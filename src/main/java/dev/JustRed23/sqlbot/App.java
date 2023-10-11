@@ -24,10 +24,24 @@ public class App extends Application {
     private static JDA instance;
     private JDABuilder builder;
 
+    private Thread timerThread;
+    private boolean running = false;
+
     protected void init() {
         LOGGER = SBLogger.getLogger(BotConfig.name);
         version = GitVersion.fromFile(getClass().getClassLoader().getResourceAsStream("application.properties"));
         FileStructure.disable();
+
+        timerThread = new Thread(() -> {
+            while (running) {
+                SessionManager.getSessions().forEach(SessionManager::tick);
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }, "Session Timer Thread");
 
         builder = JDABuilder.createDefault(BotConfig.token)
                 .setEnableShutdownHook(false)
@@ -87,11 +101,17 @@ public class App extends Application {
         instance = builder.build();
         instance.addEventListener(JDAUtilities.getInstance().listener(), new DBListener());
         instance.awaitReady();
+
+        running = true;
+        timerThread.start();
     }
 
-    protected void stop() {
+    protected void stop() throws InterruptedException {
         if (instance == null || !BotConfig.enabled)
             return;
+
+        running = false;
+        timerThread.join(1000);
 
         SessionManager.getSessions().forEach(SessionManager::closeSession);
 

@@ -16,14 +16,15 @@ public final class SessionManager {
     private static final Map<Member, SessionManager> sessions = Collections.synchronizedMap(new HashMap<>());
 
     public static SessionManager getOrCreate(Member user) {
-        if (hasSession(user)) return sessions.get(user);
-
-        SessionManager session = new SessionManager();
-        sessions.put(user, session);
-        return session;
+        synchronized (sessions) {
+            if (hasSession(user)) return sessions.get(user);
+            SessionManager session = new SessionManager(user);
+            sessions.put(user, session);
+            return session;
+        }
     }
 
-    public static List<SessionManager> getSessions() {
+    public static synchronized List<SessionManager> getSessions() {
         return sessions.values().stream().toList();
     }
 
@@ -32,20 +33,27 @@ public final class SessionManager {
     }
 
 
+
+    private final SessionTimer timer = new SessionTimer(this);
     private final List<String> sendQueue = Collections.synchronizedList(new ArrayList<>());
     private final AtomicInteger waitTime = new AtomicInteger(0);
+
+    private final Member user;
 
     private long guildId = -1;
     private long channelId = -1;
 
     private boolean sessionOpen = false;
     private boolean manualClose = false;
+    private boolean isClosing = false;
 
     private Process sqlcmdProcess;
     private BufferedWriter processWriter;
     private Thread processListener, processSender;
 
-    private SessionManager() {}
+    private SessionManager(Member user) {
+        this.user = user;
+    }
 
     public boolean openSession() {
         if (!sessionOpen) {
@@ -60,9 +68,7 @@ public final class SessionManager {
                         if (!manualClose) sendMsgToBoundChannel("Session closed");
                     } else sendMsgToBoundChannel("Session closed with error code " + process.exitValue());
 
-                    sessionOpen = false;
-                    guildId = -1;
-                    channelId = -1;
+                    unset();
 
                     App.LOGGER.debug("SQLCMD exit future completed");
                 });
@@ -77,6 +83,8 @@ public final class SessionManager {
 
                 createProcessListener();
 
+                timer.start();
+
                 App.LOGGER.debug("Opened SQLCMD session");
             } catch (IOException e) {
                 sendMsgToBoundChannel("Failed to open session: " + e.getMessage());
@@ -90,7 +98,8 @@ public final class SessionManager {
     }
 
     public boolean closeSession() {
-        if (!sessionOpen) return false;
+        if (!sessionOpen || isClosing) return false;
+        isClosing = true;
 
         manualClose = true;
 
@@ -119,14 +128,13 @@ public final class SessionManager {
         }
         App.LOGGER.debug("Process threads joined");
 
-        sessionOpen = false;
-        guildId = -1;
-        channelId = -1;
+        unset();
 
+        isClosing = false;
         return true;
     }
 
-    private void sendMsgToBoundChannel(String msg) {
+    public void sendMsgToBoundChannel(String msg) {
         if (!isBound()) return;
 
         final Guild guildById = App.getInstance().getGuildById(guildId);
@@ -148,6 +156,8 @@ public final class SessionManager {
             processWriter.write(msg);
             processWriter.newLine();
             processWriter.flush();
+
+            timer.reset();
 
             App.LOGGER.debug("Sent message to process: " + msg);
         } catch (IOException e) {
@@ -220,6 +230,10 @@ public final class SessionManager {
         processSender.start();
     }
 
+    void tick() {
+        timer.tick();
+    }
+
     private void addToSendQueue(String msg) {
         if (!sessionOpen) return;
         synchronized (sendQueue) {
@@ -236,6 +250,17 @@ public final class SessionManager {
             ((ThreadChannel) channel).join().queue();
     }
 
+    private void unset() {
+        sessionOpen = false;
+        guildId = -1;
+        channelId = -1;
+        timer.stop();
+
+        synchronized (sessions) {
+            sessions.remove(user);
+        }
+    }
+
     public boolean isSessionOpen() {
         return sessionOpen;
     }
@@ -250,5 +275,9 @@ public final class SessionManager {
 
     public long getBoundChannelId() {
         return channelId;
+    }
+
+    public Member getUser() {
+        return user;
     }
 }
