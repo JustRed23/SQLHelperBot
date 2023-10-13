@@ -2,6 +2,7 @@ package dev.JustRed23.sqlbot;
 
 import dev.JustRed23.abcm.Config;
 import dev.JustRed23.jdautils.JDAUtilities;
+import dev.JustRed23.sqlbot.services.UpdateService;
 import dev.JustRed23.stonebrick.app.Application;
 import dev.JustRed23.stonebrick.data.FileStructure;
 import dev.JustRed23.stonebrick.log.SBLogger;
@@ -89,6 +90,8 @@ public class App extends Application {
                         ctx.getHook().editOriginal("Failed to close session").queue();
                 })
                 .buildAndRegister();
+
+        getServicePool().addService(UpdateService.class);
     }
 
     protected void start() throws Exception {
