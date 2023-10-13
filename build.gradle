@@ -49,7 +49,7 @@ dependencies {
 }
 
 shadowJar {
-    archiveFileName = 'sqlhelper.jar'
+    archiveFileName = 'SQLHelperBot.jar'
     manifest {
         attributes('Implementation-Title': project.name, 'Implementation-Version': versioning.info.build)
     }
