@@ -58,7 +58,7 @@ public final class SessionManager {
     public boolean openSession() {
         if (!sessionOpen) {
             manualClose = false;
-            ProcessBuilder builder = new ProcessBuilder(Commands.OPEN_SQLCMD.getCommand().split(" "));
+            ProcessBuilder builder = new ProcessBuilder(BotConfig.sqlcmd.split(" "));
             try {
                 App.LOGGER.debug("Opening SQLCMD session with command: " + String.join(" ", builder.command()));
                 sqlcmdProcess = builder.start();

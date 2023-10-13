@@ -23,6 +23,9 @@ public class BotConfig {
     @ConfigField(defaultValue = "")
     public static String token;
 
+    @ConfigField(defaultValue = "sqlcmd -S .\\SQLEXPRESS")
+    public static String sqlcmd;
+
     @ConfigField(defaultValue = "253219587787718658")
     public static String owner_id;
 
