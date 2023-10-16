@@ -2,9 +2,11 @@ package dev.JustRed23.sqlbot;
 
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
+import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.channel.concrete.ThreadChannel;
 import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
 import net.dv8tion.jda.api.entities.channel.middleman.GuildMessageChannel;
+import net.dv8tion.jda.api.utils.FileUpload;
 
 import java.io.*;
 import java.util.*;
@@ -135,18 +137,31 @@ public final class SessionManager {
     }
 
     public void sendMsgToBoundChannel(String msg) {
-        if (!isBound()) return;
+        if (!isBound() || msg.isBlank()) return;
 
         final Guild guildById = App.getInstance().getGuildById(guildId);
         if (guildById == null) {
-            App.LOGGER.error("Failed to send message to binded channel: guild not found");
+            App.LOGGER.error("Failed to send message to bound channel: guild not found");
             return;
         }
 
         final GuildChannel channelById = guildById.getGuildChannelById(channelId);
-        if (channelById instanceof GuildMessageChannel channel)
-            channel.sendMessage(msg).queue(suc -> {}, err -> App.LOGGER.error("Failed to send message to binded channel", err));
-        else App.LOGGER.error("Failed to send message to binded channel: channel not found");
+        if (channelById instanceof GuildMessageChannel channel) {
+            if (msg.length() >= Message.MAX_CONTENT_LENGTH) {
+                try (FileUpload fileUpload = FileUpload.fromData(msg.getBytes(), "response.txt")) {
+                    channel.sendMessage(":warning: Message content exceeds character limit, response sent in attached file")
+                            .addFiles(fileUpload)
+                            .queue(suc -> {}, err -> App.LOGGER.error("Failed to send file to bound channel", err));
+                    return;
+                } catch (IOException e) {
+                    App.LOGGER.error("Failed to send file to bound channel", e);
+                    return;
+                }
+            }
+
+            channel.sendMessage(msg).queue(suc -> {}, err -> App.LOGGER.error("Failed to send message to bound channel", err));
+        }
+        else App.LOGGER.error("Failed to send message to bound channel: channel not found");
     }
 
     public void sendMsgToProcess(String msg) {
