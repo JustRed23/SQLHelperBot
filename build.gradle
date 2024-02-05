@@ -43,7 +43,7 @@ dependencies {
 
     //JDA
     implementation 'net.dv8tion:JDA:5.0.0-beta.20'
-    implementation 'com.github.JustRed23:JDA-Utilities:1.4'
+    implementation 'com.github.JustRed23:JDA-Utilities:2.4'
 
     implementation 'ch.qos.logback:logback-classic:1.4.11'
 }
